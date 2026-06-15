@@ -25,11 +25,16 @@ jobs:
       - name: 安装 Android SDK
         uses: android-actions/setup-android@v3
 
+      - name: 准备网页文件
+        run: |
+          mkdir www
+          cp index.html style.css app.js manifest.json sw.js icon-192.png icon-512.png www/
+
       - name: 用 Capacitor 构建 APK
         run: |
           npm init -y
           npm install @capacitor/core @capacitor/cli @capacitor/android
-          npx cap init "阿搏锐密钥" "com.abr.keygen" --web-dir=.
+          npx cap init "阿搏锐密钥" "com.abr.keygen" --web-dir=www
           npx cap add android
           cd android
           ./gradlew assembleDebug
