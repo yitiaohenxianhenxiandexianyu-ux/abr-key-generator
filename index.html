@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>阿搏锐密钥生成</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#1a73e8">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="阿搏锐密钥生成">
+</head>
+<body>
+
+  <!-- 主页面 -->
+  <div id="mainPage" class="page active">
+
+    <div class="header">
+      <h1>🔐 阿搏锐密钥生成</h1>
+    </div>
+
+    <div class="card">
+      <!-- 输入区域 -->
+      <div class="input-group">
+        <label>厂家代码</label>
+        <input type="text" id="factoryCode" placeholder="请输入厂家代码" autocomplete="off">
+      </div>
+
+      <div class="input-group">
+        <label>密&nbsp;&nbsp;&nbsp;&nbsp;钥</label>
+        <input type="text" id="secretKey" placeholder="请输入密钥" autocomplete="off">
+      </div>
+
+      <div class="input-group">
+        <label>到期时间</label>
+        <input type="date" id="expireDate">
+      </div>
+
+      <!-- 计算按钮 -->
+      <button id="calcBtn" class="btn-calc">计 算</button>
+
+      <!-- 输出区域 -->
+      <div class="output-area" id="outputArea">
+        <div class="output-row">
+          <span class="output-label">密&nbsp;&nbsp;&nbsp;&nbsp;码</span>
+          <span class="output-value" id="password">----</span>
+          <button class="btn-copy" id="copyPwd" title="复制密码">📋</button>
+        </div>
+        <div class="output-row">
+          <span class="output-label">超级密码</span>
+          <span class="output-value" id="superPassword">----</span>
+          <button class="btn-copy" id="copySuper" title="复制超级密码">📋</button>
+        </div>
+      </div>
+
+      <!-- 错误提示 -->
+      <div class="error-msg" id="errorMsg"></div>
+    </div>
+
+    <!-- 底部按钮 -->
+    <div class="bottom-nav">
+      <button id="historyBtn" class="btn-history">📋 查看历史记录</button>
+    </div>
+
+  </div>
+
+  <!-- 历史记录页面 -->
+  <div id="historyPage" class="page">
+    <div class="header">
+      <button id="backBtn" class="btn-back">← 返回</button>
+      <h1>历史记录</h1>
+      <button id="clearBtn" class="btn-clear">清空</button>
+    </div>
+
+    <div class="history-list" id="historyList">
+      <div class="empty-hint">暂无记录</div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+
+  <!-- 注册 Service Worker（用于离线缓存和安装到手机） -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('sw.js').then(function() {
+        console.log('Service Worker 注册成功');
+      }).catch(function(err) {
+        console.log('Service Worker 注册失败:', err);
+      });
+    }
+  </script>
+</body>
+</html>
