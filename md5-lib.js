@@ -1,402 +1,216 @@
-/*
- * JavaScript MD5
- * https://github.com/blueimp/JavaScript-MD5
- *
- * Copyright 2011, Sebastian Tschan
- * https://blueimp.net
- *
- * Licensed under the MIT license:
- * https://opensource.org/licenses/MIT
- *
- * Based on
- * A JavaScript implementation of the RSA Data Security, Inc. MD5 Message
- * Digest Algorithm, as defined in RFC 1321.
- * Version 2.2 Copyright (C) Paul Johnston 1999 - 2009
- * Other contributors: Greg Holt, Andrew Kepert, Ydnar, Lostinet
- * Distributed under the BSD License
- * See http://pajhome.org.uk/crypt/md5 for more info.
- */
+// ============================================================
+// Lua-compatible MD5 - 1:1 对照设备 Lua 实现
+// 关键：round 函数结构与标准 MD5 不同！
+// ============================================================
 
-/* global define */
+(function() {
 
-/* eslint-disable strict */
+  // ---- 位操作函数（与 Lua 行为完全一致）----
 
-;(function ($) {
-  'use strict'
-
-  /**
-   * Add integers, wrapping at 2^32.
-   * This uses 16-bit operations internally to work around bugs in interpreters.
-   *
-   * @param {number} x First integer
-   * @param {number} y Second integer
-   * @returns {number} Sum
-   */
-  function safeAdd(x, y) {
-    var lsw = (x & 0xffff) + (y & 0xffff)
-    var msw = (x >> 16) + (y >> 16) + (lsw >> 16)
-    return (msw << 16) | (lsw & 0xffff)
-  }
-
-  /**
-   * Bitwise rotate a 32-bit number to the left.
-   *
-   * @param {number} num 32-bit number
-   * @param {number} cnt Rotation count
-   * @returns {number} Rotated number
-   */
-  function bitRotateLeft(num, cnt) {
-    return (num << cnt) | (num >>> (32 - cnt))
-  }
-
-  /**
-   * Basic operation the algorithm uses.
-   *
-   * @param {number} q q
-   * @param {number} a a
-   * @param {number} b b
-   * @param {number} x x
-   * @param {number} s s
-   * @param {number} t t
-   * @returns {number} Result
-   */
-  function md5cmn(q, a, b, x, s, t) {
-    return safeAdd(bitRotateLeft(safeAdd(safeAdd(a, q), safeAdd(x, t)), s), b)
-  }
-  /**
-   * Basic operation the algorithm uses.
-   *
-   * @param {number} a a
-   * @param {number} b b
-   * @param {number} c c
-   * @param {number} d d
-   * @param {number} x x
-   * @param {number} s s
-   * @param {number} t t
-   * @returns {number} Result
-   */
-  function md5ff(a, b, c, d, x, s, t) {
-    return md5cmn((b & c) | (~b & d), a, b, x, s, t)
-  }
-  /**
-   * Basic operation the algorithm uses.
-   *
-   * @param {number} a a
-   * @param {number} b b
-   * @param {number} c c
-   * @param {number} d d
-   * @param {number} x x
-   * @param {number} s s
-   * @param {number} t t
-   * @returns {number} Result
-   */
-  function md5gg(a, b, c, d, x, s, t) {
-    return md5cmn((b & d) | (c & ~d), a, b, x, s, t)
-  }
-  /**
-   * Basic operation the algorithm uses.
-   *
-   * @param {number} a a
-   * @param {number} b b
-   * @param {number} c c
-   * @param {number} d d
-   * @param {number} x x
-   * @param {number} s s
-   * @param {number} t t
-   * @returns {number} Result
-   */
-  function md5hh(a, b, c, d, x, s, t) {
-    return md5cmn(b ^ c ^ d, a, b, x, s, t)
-  }
-  /**
-   * Basic operation the algorithm uses.
-   *
-   * @param {number} a a
-   * @param {number} b b
-   * @param {number} c c
-   * @param {number} d d
-   * @param {number} x x
-   * @param {number} s s
-   * @param {number} t t
-   * @returns {number} Result
-   */
-  function md5ii(a, b, c, d, x, s, t) {
-    return md5cmn(c ^ (b | ~d), a, b, x, s, t)
-  }
-
-  /**
-   * Calculate the MD5 of an array of little-endian words, and a bit length.
-   *
-   * @param {Array} x Array of little-endian words
-   * @param {number} len Bit length
-   * @returns {Array<number>} MD5 Array
-   */
-  function binlMD5(x, len) {
-    /* append padding */
-    x[len >> 5] |= 0x80 << len % 32
-    x[(((len + 64) >>> 9) << 4) + 14] = len
-
-    var i
-    var olda
-    var oldb
-    var oldc
-    var oldd
-    var a = 1732584193
-    var b = -271733879
-    var c = -1732584194
-    var d = 271733878
-
-    for (i = 0; i < x.length; i += 16) {
-      olda = a
-      oldb = b
-      oldc = c
-      oldd = d
-
-      a = md5ff(a, b, c, d, x[i], 7, -680876936)
-      d = md5ff(d, a, b, c, x[i + 1], 12, -389564586)
-      c = md5ff(c, d, a, b, x[i + 2], 17, 606105819)
-      b = md5ff(b, c, d, a, x[i + 3], 22, -1044525330)
-      a = md5ff(a, b, c, d, x[i + 4], 7, -176418897)
-      d = md5ff(d, a, b, c, x[i + 5], 12, 1200080426)
-      c = md5ff(c, d, a, b, x[i + 6], 17, -1473231341)
-      b = md5ff(b, c, d, a, x[i + 7], 22, -45705983)
-      a = md5ff(a, b, c, d, x[i + 8], 7, 1770035416)
-      d = md5ff(d, a, b, c, x[i + 9], 12, -1958414417)
-      c = md5ff(c, d, a, b, x[i + 10], 17, -42063)
-      b = md5ff(b, c, d, a, x[i + 11], 22, -1990404162)
-      a = md5ff(a, b, c, d, x[i + 12], 7, 1804603682)
-      d = md5ff(d, a, b, c, x[i + 13], 12, -40341101)
-      c = md5ff(c, d, a, b, x[i + 14], 17, -1502002290)
-      b = md5ff(b, c, d, a, x[i + 15], 22, 1236535329)
-
-      a = md5gg(a, b, c, d, x[i + 1], 5, -165796510)
-      d = md5gg(d, a, b, c, x[i + 6], 9, -1069501632)
-      c = md5gg(c, d, a, b, x[i + 11], 14, 643717713)
-      b = md5gg(b, c, d, a, x[i], 20, -373897302)
-      a = md5gg(a, b, c, d, x[i + 5], 5, -701558691)
-      d = md5gg(d, a, b, c, x[i + 10], 9, 38016083)
-      c = md5gg(c, d, a, b, x[i + 15], 14, -660478335)
-      b = md5gg(b, c, d, a, x[i + 4], 20, -405537848)
-      a = md5gg(a, b, c, d, x[i + 9], 5, 568446438)
-      d = md5gg(d, a, b, c, x[i + 14], 9, -1019803690)
-      c = md5gg(c, d, a, b, x[i + 3], 14, -187363961)
-      b = md5gg(b, c, d, a, x[i + 8], 20, 1163531501)
-      a = md5gg(a, b, c, d, x[i + 13], 5, -1444681467)
-      d = md5gg(d, a, b, c, x[i + 2], 9, -51403784)
-      c = md5gg(c, d, a, b, x[i + 7], 14, 1735328473)
-      b = md5gg(b, c, d, a, x[i + 12], 20, -1926607734)
-
-      a = md5hh(a, b, c, d, x[i + 5], 4, -378558)
-      d = md5hh(d, a, b, c, x[i + 8], 11, -2022574463)
-      c = md5hh(c, d, a, b, x[i + 11], 16, 1839030562)
-      b = md5hh(b, c, d, a, x[i + 14], 23, -35309556)
-      a = md5hh(a, b, c, d, x[i + 1], 4, -1530992060)
-      d = md5hh(d, a, b, c, x[i + 4], 11, 1272893353)
-      c = md5hh(c, d, a, b, x[i + 7], 16, -155497632)
-      b = md5hh(b, c, d, a, x[i + 10], 23, -1094730640)
-      a = md5hh(a, b, c, d, x[i + 13], 4, 681279174)
-      d = md5hh(d, a, b, c, x[i], 11, -358537222)
-      c = md5hh(c, d, a, b, x[i + 3], 16, -722521979)
-      b = md5hh(b, c, d, a, x[i + 6], 23, 76029189)
-      a = md5hh(a, b, c, d, x[i + 9], 4, -640364487)
-      d = md5hh(d, a, b, c, x[i + 12], 11, -421815835)
-      c = md5hh(c, d, a, b, x[i + 15], 16, 530742520)
-      b = md5hh(b, c, d, a, x[i + 2], 23, -995338651)
-
-      a = md5ii(a, b, c, d, x[i], 6, -198630844)
-      d = md5ii(d, a, b, c, x[i + 7], 10, 1126891415)
-      c = md5ii(c, d, a, b, x[i + 14], 15, -1416354905)
-      b = md5ii(b, c, d, a, x[i + 5], 21, -57434055)
-      a = md5ii(a, b, c, d, x[i + 12], 6, 1700485571)
-      d = md5ii(d, a, b, c, x[i + 3], 10, -1894986606)
-      c = md5ii(c, d, a, b, x[i + 10], 15, -1051523)
-      b = md5ii(b, c, d, a, x[i + 1], 21, -2054922799)
-      a = md5ii(a, b, c, d, x[i + 8], 6, 1873313359)
-      d = md5ii(d, a, b, c, x[i + 15], 10, -30611744)
-      c = md5ii(c, d, a, b, x[i + 6], 15, -1560198380)
-      b = md5ii(b, c, d, a, x[i + 13], 21, 1309151649)
-      a = md5ii(a, b, c, d, x[i + 4], 6, -145523070)
-      d = md5ii(d, a, b, c, x[i + 11], 10, -1120210379)
-      c = md5ii(c, d, a, b, x[i + 2], 15, 718787259)
-      b = md5ii(b, c, d, a, x[i + 9], 21, -343485551)
-
-      a = safeAdd(a, olda)
-      b = safeAdd(b, oldb)
-      c = safeAdd(c, oldc)
-      d = safeAdd(d, oldd)
+  function band(a, b) {
+    var result = 0;
+    var bitval = 1;
+    while (a > 0 && b > 0) {
+      if (mod2(a) === 1 && mod2(b) === 1) result += bitval;
+      a = Math.floor(a / 2);
+      b = Math.floor(b / 2);
+      bitval *= 2;
     }
-    return [a, b, c, d]
+    return result;
   }
 
-  /**
-   * Convert an array of little-endian words to a string
-   *
-   * @param {Array<number>} input MD5 Array
-   * @returns {string} MD5 string
-   */
-  function binl2rstr(input) {
-    var i
-    var output = ''
-    var length32 = input.length * 32
-    for (i = 0; i < length32; i += 8) {
-      output += String.fromCharCode((input[i >> 5] >>> i % 32) & 0xff)
+  function bor(a, b) {
+    var result = 0;
+    var bitval = 1;
+    while (a > 0 || b > 0) {
+      var abit = mod2(a);
+      var bbit = mod2(b);
+      if (abit === 1 || bbit === 1) result += bitval;
+      a = Math.floor(a / 2);
+      b = Math.floor(b / 2);
+      bitval *= 2;
     }
-    return output
+    return result;
   }
 
-  /**
-   * Convert a raw string to an array of little-endian words
-   * Characters >255 have their high-byte silently ignored.
-   *
-   * @param {string} input Raw input string
-   * @returns {Array<number>} Array of little-endian words
-   */
-  function rstr2binl(input) {
-    var i
-    var output = []
-    output[(input.length >> 2) - 1] = undefined
-    for (i = 0; i < output.length; i += 1) {
-      output[i] = 0
+  function bxor(a, b) {
+    var result = 0;
+    var bitval = 1;
+    while (a > 0 || b > 0) {
+      var abit = mod2(a);
+      var bbit = mod2(b);
+      if (abit !== bbit) result += bitval;
+      a = Math.floor(a / 2);
+      b = Math.floor(b / 2);
+      bitval *= 2;
     }
-    var length8 = input.length * 8
-    for (i = 0; i < length8; i += 8) {
-      output[i >> 5] |= (input.charCodeAt(i / 8) & 0xff) << i % 32
+    return result;
+  }
+
+  function lshift(a, n) {
+    return Math.floor(a * Math.pow(2, n)) % 4294967296;
+  }
+
+  function rshift(a, n) {
+    return Math.floor(a / Math.pow(2, n));
+  }
+
+  function bnot(a) {
+    return 4294967295 - a;
+  }
+
+  // Lua 的 % 始终返回非负余数，JS 需修正
+  function mod2(n) {
+    var r = n % 2;
+    return r < 0 ? r + 2 : r;
+  }
+
+  function rol(x, n) {
+    return bor(lshift(x, n), rshift(x, 32 - n));
+  }
+
+  // ---- 辅助函数 ----
+
+  function to_le_bytes(n) {
+    return String.fromCharCode(
+      band(n, 0xFF),
+      band(rshift(n, 8), 0xFF),
+      band(rshift(n, 16), 0xFF),
+      band(rshift(n, 24), 0xFF)
+    );
+  }
+
+  function from_le_bytes(s, pos) {
+    pos = pos || 0;
+    var a = s.charCodeAt(pos);
+    var b = s.charCodeAt(pos + 1);
+    var c = s.charCodeAt(pos + 2);
+    var d = s.charCodeAt(pos + 3);
+    return a + lshift(b, 8) + lshift(c, 16) + lshift(d, 24);
+  }
+
+  // ---- T 常量表 ----
+  var T = [];
+  for (var i = 1; i <= 64; i++) {
+    T[i] = Math.floor(4294967296 * Math.abs(Math.sin(i)));
+  }
+
+  // ---- 非线性函数 ----
+  function F(x, y, z) { return bor(band(x, y), band(bnot(x), z)); }
+  function G(x, y, z) { return bor(band(x, z), band(y, bnot(z))); }
+  function H(x, y, z) { return bxor(x, bxor(y, z)); }
+  function I(x, y, z) { return bxor(y, bor(x, bnot(z))); }
+
+  // ---- 单轮运算（关键：与标准 MD5 不同！）----
+  function round(func, a, b, c, d, k, s, i, data) {
+    var pos = (k - 1) * 4;
+    return rol(b + func(a, b, c) + from_le_bytes(data, pos) + T[i], s) + a;
+  }
+
+  // ---- MD5 主函数 ----
+  window.md5 = function(message) {
+    var a0 = 0x67452301;
+    var b0 = 0xefcdab89;
+    var c0 = 0x98badcfe;
+    var d0 = 0x10325476;
+
+    var len = message.length;
+
+    // 计算需要补零的个数
+    var zeros = (64 - ((len + 1 + 8) % 64)) % 64;
+
+    // 构造完整消息
+    var msg = message + '\x80' + '\x00'.repeat(zeros) + to_le_bytes(len * 8) + '\x00\x00\x00\x00';
+
+    for (var i = 0; i < msg.length; i += 64) {
+      var block = msg.substring(i, i + 64);
+      var a = a0, b = b0, c = c0, d = d0;
+
+      // 第1轮
+      a = round(F, a, b, c, d,  1,  7,  1, block);
+      d = round(F, d, a, b, c,  2, 12,  2, block);
+      c = round(F, c, d, a, b,  3, 17,  3, block);
+      b = round(F, b, c, d, a,  4, 22,  4, block);
+      a = round(F, a, b, c, d,  5,  7,  5, block);
+      d = round(F, d, a, b, c,  6, 12,  6, block);
+      c = round(F, c, d, a, b,  7, 17,  7, block);
+      b = round(F, b, c, d, a,  8, 22,  8, block);
+      a = round(F, a, b, c, d,  9,  7,  9, block);
+      d = round(F, d, a, b, c, 10, 12, 10, block);
+      c = round(F, c, d, a, b, 11, 17, 11, block);
+      b = round(F, b, c, d, a, 12, 22, 12, block);
+      a = round(F, a, b, c, d, 13,  7, 13, block);
+      d = round(F, d, a, b, c, 14, 12, 14, block);
+      c = round(F, c, d, a, b, 15, 17, 15, block);
+      b = round(F, b, c, d, a, 16, 22, 16, block);
+
+      // 第2轮
+      a = round(G, a, b, c, d,  2,  5, 17, block);
+      d = round(G, d, a, b, c,  7,  9, 18, block);
+      c = round(G, c, d, a, b, 12, 14, 19, block);
+      b = round(G, b, c, d, a,  1, 20, 20, block);
+      a = round(G, a, b, c, d,  6,  5, 21, block);
+      d = round(G, d, a, b, c, 11,  9, 22, block);
+      c = round(G, c, d, a, b, 16, 14, 23, block);
+      b = round(G, b, c, d, a,  5, 20, 24, block);
+      a = round(G, a, b, c, d, 10,  5, 25, block);
+      d = round(G, d, a, b, c, 15,  9, 26, block);
+      c = round(G, c, d, a, b,  4, 14, 27, block);
+      b = round(G, b, c, d, a,  9, 20, 28, block);
+      a = round(G, a, b, c, d, 14,  5, 29, block);
+      d = round(G, d, a, b, c,  3,  9, 30, block);
+      c = round(G, c, d, a, b,  8, 14, 31, block);
+      b = round(G, b, c, d, a, 13, 20, 32, block);
+
+      // 第3轮
+      a = round(H, a, b, c, d,  6,  4, 33, block);
+      d = round(H, d, a, b, c,  9, 11, 34, block);
+      c = round(H, c, d, a, b, 12, 16, 35, block);
+      b = round(H, b, c, d, a, 15, 23, 36, block);
+      a = round(H, a, b, c, d,  2,  4, 37, block);
+      d = round(H, d, a, b, c,  5, 11, 38, block);
+      c = round(H, c, d, a, b,  8, 16, 39, block);
+      b = round(H, b, c, d, a, 11, 23, 40, block);
+      a = round(H, a, b, c, d, 14,  4, 41, block);
+      d = round(H, d, a, b, c,  1, 11, 42, block);
+      c = round(H, c, d, a, b,  4, 16, 43, block);
+      b = round(H, b, c, d, a,  7, 23, 44, block);
+      a = round(H, a, b, c, d, 10,  4, 45, block);
+      d = round(H, d, a, b, c, 13, 11, 46, block);
+      c = round(H, c, d, a, b, 16, 16, 47, block);
+      b = round(H, b, c, d, a,  3, 23, 48, block);
+
+      // 第4轮
+      a = round(I, a, b, c, d,  1,  6, 49, block);
+      d = round(I, d, a, b, c,  8, 10, 50, block);
+      c = round(I, c, d, a, b, 15, 15, 51, block);
+      b = round(I, b, c, d, a,  6, 21, 52, block);
+      a = round(I, a, b, c, d, 13,  6, 53, block);
+      d = round(I, d, a, b, c,  4, 10, 54, block);
+      c = round(I, c, d, a, b, 11, 15, 55, block);
+      b = round(I, b, c, d, a,  2, 21, 56, block);
+      a = round(I, a, b, c, d,  9,  6, 57, block);
+      d = round(I, d, a, b, c, 16, 10, 58, block);
+      c = round(I, c, d, a, b,  7, 15, 59, block);
+      b = round(I, b, c, d, a, 14, 21, 60, block);
+      a = round(I, a, b, c, d,  5,  6, 61, block);
+      d = round(I, d, a, b, c, 12, 10, 62, block);
+      c = round(I, c, d, a, b,  3, 15, 63, block);
+      b = round(I, b, c, d, a, 10, 21, 64, block);
+
+      a0 = (a0 + a) % 4294967296;
+      b0 = (b0 + b) % 4294967296;
+      c0 = (c0 + c) % 4294967296;
+      d0 = (d0 + d) % 4294967296;
     }
-    return output
-  }
 
-  /**
-   * Calculate the MD5 of a raw string
-   *
-   * @param {string} s Input string
-   * @returns {string} Raw MD5 string
-   */
-  function rstrMD5(s) {
-    return binl2rstr(binlMD5(rstr2binl(s), s.length * 8))
-  }
-
-  /**
-   * Calculates the HMAC-MD5 of a key and some data (raw strings)
-   *
-   * @param {string} key HMAC key
-   * @param {string} data Raw input string
-   * @returns {string} Raw MD5 string
-   */
-  function rstrHMACMD5(key, data) {
-    var i
-    var bkey = rstr2binl(key)
-    var ipad = []
-    var opad = []
-    var hash
-    ipad[15] = opad[15] = undefined
-    if (bkey.length > 16) {
-      bkey = binlMD5(bkey, key.length * 8)
+    function toHex8(v) {
+      var h = v.toString(16);
+      while (h.length < 8) h = '0' + h;
+      return h;
     }
-    for (i = 0; i < 16; i += 1) {
-      ipad[i] = bkey[i] ^ 0x36363636
-      opad[i] = bkey[i] ^ 0x5c5c5c5c
-    }
-    hash = binlMD5(ipad.concat(rstr2binl(data)), 512 + data.length * 8)
-    return binl2rstr(binlMD5(opad.concat(hash), 512 + 128))
-  }
 
-  /**
-   * Convert a raw string to a hex string
-   *
-   * @param {string} input Raw input string
-   * @returns {string} Hex encoded string
-   */
-  function rstr2hex(input) {
-    var hexTab = '0123456789abcdef'
-    var output = ''
-    var x
-    var i
-    for (i = 0; i < input.length; i += 1) {
-      x = input.charCodeAt(i)
-      output += hexTab.charAt((x >>> 4) & 0x0f) + hexTab.charAt(x & 0x0f)
-    }
-    return output
-  }
+    return toHex8(a0) + toHex8(b0) + toHex8(c0) + toHex8(d0);
+  };
 
-  /**
-   * Encode a string as UTF-8
-   *
-   * @param {string} input Input string
-   * @returns {string} UTF8 string
-   */
-  function str2rstrUTF8(input) {
-    return unescape(encodeURIComponent(input))
-  }
-
-  /**
-   * Encodes input string as raw MD5 string
-   *
-   * @param {string} s Input string
-   * @returns {string} Raw MD5 string
-   */
-  function rawMD5(s) {
-    return rstrMD5(str2rstrUTF8(s))
-  }
-  /**
-   * Encodes input string as Hex encoded string
-   *
-   * @param {string} s Input string
-   * @returns {string} Hex encoded string
-   */
-  function hexMD5(s) {
-    return rstr2hex(rawMD5(s))
-  }
-  /**
-   * Calculates the raw HMAC-MD5 for the given key and data
-   *
-   * @param {string} k HMAC key
-   * @param {string} d Input string
-   * @returns {string} Raw MD5 string
-   */
-  function rawHMACMD5(k, d) {
-    return rstrHMACMD5(str2rstrUTF8(k), str2rstrUTF8(d))
-  }
-  /**
-   * Calculates the Hex encoded HMAC-MD5 for the given key and data
-   *
-   * @param {string} k HMAC key
-   * @param {string} d Input string
-   * @returns {string} Raw MD5 string
-   */
-  function hexHMACMD5(k, d) {
-    return rstr2hex(rawHMACMD5(k, d))
-  }
-
-  /**
-   * Calculates MD5 value for a given string.
-   * If a key is provided, calculates the HMAC-MD5 value.
-   * Returns a Hex encoded string unless the raw argument is given.
-   *
-   * @param {string} string Input string
-   * @param {string} [key] HMAC key
-   * @param {boolean} [raw] Raw output switch
-   * @returns {string} MD5 output
-   */
-  function md5(string, key, raw) {
-    if (!key) {
-      if (!raw) {
-        return hexMD5(string)
-      }
-      return rawMD5(string)
-    }
-    if (!raw) {
-      return hexHMACMD5(key, string)
-    }
-    return rawHMACMD5(key, string)
-  }
-
-  if (typeof define === 'function' && define.amd) {
-    define(function () {
-      return md5
-    })
-  } else if (typeof module === 'object' && module.exports) {
-    module.exports = md5
-  } else {
-    $.md5 = md5
-  }
-})(this)
+})();

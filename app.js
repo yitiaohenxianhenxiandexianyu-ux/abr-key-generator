@@ -203,6 +203,7 @@ function runSelfTest() {
 // DOM 元素
 var mainPage = document.getElementById('mainPage');
 var historyPage = document.getElementById('historyPage');
+var vendorPage = document.getElementById('vendorPage');
 
 // 设置面板
 var settingsToggle = document.getElementById('settingsToggle');
@@ -210,6 +211,8 @@ var settingsPanel = document.getElementById('settingsPanel');
 var keyKInput = document.getElementById('keyK');
 var keyMInput = document.getElementById('keyM');
 var keyDInput = document.getElementById('keyD');
+var vendorSelect = document.getElementById('vendorSelect');
+var vendorMgmtBtn = document.getElementById('vendorMgmtBtn');
 
 // 模式选择
 var modeNormal = document.getElementById('modeNormal');
@@ -237,23 +240,49 @@ var backBtn = document.getElementById('backBtn');
 var clearBtn = document.getElementById('clearBtn');
 var historyList = document.getElementById('historyList');
 
+// 厂商管理
+var vendorBackBtn = document.getElementById('vendorBackBtn');
+var vendorNameInput = document.getElementById('vendorName');
+var vendorCodeInput = document.getElementById('vendorCode');
+var vendorNoteInput = document.getElementById('vendorNote');
+var vendorAddBtn = document.getElementById('vendorAddBtn');
+var vendorError = document.getElementById('vendorError');
+var vendorListEl = document.getElementById('vendorList');
+
 // ==================== 状态 ====================
 
 var currentMode = 'normal'; // 'normal' | 'super' | 'update'
+var editingVendorId = null; // 正在编辑的厂商 ID
 
 // ==================== 初始化 ====================
 
 // 设置默认值
 keyKInput.value = '12345678';
-keyMInput.value = '100';
 keyDInput.value = '888';
 
-// 日期默认今天
+// 日期默认今天（YYYY-MM-DD 格式）
 var today = new Date();
 var yyyy = today.getFullYear().toString();
 var mm = (today.getMonth() + 1).toString().padStart(2, '0');
 var dd = today.getDate().toString().padStart(2, '0');
-dateInput.value = yyyy.substring(2) + mm + dd;
+dateInput.value = yyyy + '-' + mm + '-' + dd;
+
+// 加载厂商列表
+loadVendorDropdown();
+
+// ==================== 日期格式转换 ====================
+
+// YYYY-MM-DD → YYMMDD
+function dateToYYMMDD(dateStr) {
+  var parts = dateStr.split('-');
+  if (parts.length !== 3) return '';
+  return parts[0].substring(2) + parts[1] + parts[2];
+}
+
+// YYMMDD → 显示用 YYYY-MM-DD
+function yyMMDDtoDate(yymmdd) {
+  return '20' + yymmdd.substring(0,2) + '-' + yymmdd.substring(2,4) + '-' + yymmdd.substring(4,6);
+}
 
 // ==================== 设置面板折叠 ====================
 
@@ -326,13 +355,12 @@ calcBtn.addEventListener('click', function() {
   var desc = '';
 
   if (currentMode === 'normal') {
-    T = dateInput.value.trim();
-    if (!T || T.length !== 6 || !/^\d{6}$/.test(T)) {
-      showError('到期时间格式错误，需为 6 位数字 YYMMDD');
-      return;
-    }
+    var dateVal = dateInput.value.trim();
+    if (!dateVal) { showError('请选择到期时间'); return; }
+    T = dateToYYMMDD(dateVal);
+    if (!T || T.length !== 6) { showError('日期转换失败'); return; }
     password = generate_password(K, M, D, T);
-    desc = '普通分期密码 (到期: ' + T + ')';
+    desc = '普通分期密码 (到期: ' + dateVal + ')';
 
   } else if (currentMode === 'super') {
     T = '999999';
@@ -380,8 +408,8 @@ calcBtn.addEventListener('click', function() {
   }
   verifyHint.textContent = verifyStr;
 
-  // 保存历史
-  var historyT = (currentMode === 'normal') ? dateInput.value : T;
+  // 保存历史（日期用 YYYY-MM-DD 显示格式）
+  var historyT = (currentMode === 'normal') ? dateInput.value : (T === '999999' ? '永久' : T);
   saveHistory(K, M, D, historyT, password, desc);
 });
 
@@ -457,6 +485,190 @@ function loadHistory() {
       '</div>';
   });
   historyList.innerHTML = html;
+}
+
+// ==================== 厂商管理 ====================
+
+var VENDOR_KEY = 'vendorList';
+
+function getVendors() {
+  try {
+    var data = localStorage.getItem(VENDOR_KEY);
+    return data ? JSON.parse(data) : [];
+  } catch (e) { return []; }
+}
+
+function saveVendors(list) {
+  localStorage.setItem(VENDOR_KEY, JSON.stringify(list));
+}
+
+function loadVendorDropdown() {
+  var vendors = getVendors();
+  vendorSelect.innerHTML = '<option value="">-- 选择厂商 --</option>';
+  vendors.forEach(function(v) {
+    var opt = document.createElement('option');
+    opt.value = v.code;
+    opt.textContent = v.name + ' (' + v.code + ')';
+    vendorSelect.appendChild(opt);
+  });
+  // 恢复之前选中的值
+  if (keyMInput.value) {
+    vendorSelect.value = keyMInput.value;
+  }
+}
+
+// 厂商选择变化 → 自动填充 M 输入框
+vendorSelect.addEventListener('change', function() {
+  if (vendorSelect.value) {
+    keyMInput.value = vendorSelect.value;
+    // 显示厂商名称提示
+    var vendors = getVendors();
+    var found = vendors.filter(function(v) { return v.code === vendorSelect.value; });
+    if (found.length > 0) {
+      keyMInput.placeholder = found[0].name;
+    }
+  }
+});
+
+// M 输入框手动输入 → 同步下拉框
+keyMInput.addEventListener('input', function() {
+  if (keyMInput.value) {
+    vendorSelect.value = keyMInput.value;
+  } else {
+    vendorSelect.value = '';
+  }
+});
+
+// 打开厂商管理页面
+vendorMgmtBtn.addEventListener('click', function() {
+  mainPage.classList.remove('active');
+  vendorPage.classList.add('active');
+  editingVendorId = null;
+  vendorNameInput.value = '';
+  vendorCodeInput.value = '';
+  vendorNoteInput.value = '';
+  vendorAddBtn.textContent = '保存厂商';
+  vendorError.textContent = '';
+  renderVendorList();
+});
+
+// 返回主页
+vendorBackBtn.addEventListener('click', function() {
+  vendorPage.classList.remove('active');
+  mainPage.classList.add('active');
+  loadVendorDropdown();
+});
+
+// 新增/编辑厂商
+vendorAddBtn.addEventListener('click', function() {
+  var name = vendorNameInput.value.trim();
+  var code = vendorCodeInput.value.trim();
+  var note = vendorNoteInput.value.trim();
+
+  if (!name) { vendorError.textContent = '请输入厂商名称'; return; }
+  if (!code) { vendorError.textContent = '请输入厂商代码'; return; }
+  if (!/^\d+$/.test(code)) { vendorError.textContent = '厂商代码必须为纯数字'; return; }
+
+  var vendors = getVendors();
+
+  if (editingVendorId) {
+    // 编辑模式
+    var idx = -1;
+    for (var i = 0; i < vendors.length; i++) {
+      if (vendors[i].id === editingVendorId) { idx = i; break; }
+    }
+    if (idx >= 0) {
+      vendors[idx].name = name;
+      vendors[idx].code = code;
+      vendors[idx].note = note;
+    }
+    editingVendorId = null;
+    vendorAddBtn.textContent = '保存厂商';
+  } else {
+    // 检查代码重复
+    var dup = vendors.filter(function(v) { return v.code === code; });
+    if (dup.length > 0) {
+      vendorError.textContent = '厂商代码 ' + code + ' 已存在';
+      return;
+    }
+    vendors.push({
+      id: Date.now(),
+      name: name,
+      code: code,
+      note: note
+    });
+  }
+
+  saveVendors(vendors);
+  vendorNameInput.value = '';
+  vendorCodeInput.value = '';
+  vendorNoteInput.value = '';
+  vendorError.textContent = '✅ 保存成功';
+  setTimeout(function() { vendorError.textContent = ''; }, 2000);
+  renderVendorList();
+  loadVendorDropdown();
+});
+
+// 渲染厂商列表
+function renderVendorList() {
+  var vendors = getVendors();
+  if (vendors.length === 0) {
+    vendorListEl.innerHTML = '<div class="empty-hint">暂无厂商，请新增</div>';
+    return;
+  }
+
+  var html = '';
+  vendors.forEach(function(v) {
+    html += '<div class="vendor-card">' +
+      '<div class="vc-info">' +
+        '<div class="vc-name">' + escapeHtml(v.name) + '</div>' +
+        '<div class="vc-meta">' +
+          '<span>代码: ' + escapeHtml(v.code) + '</span>' +
+          (v.note ? '<span>备注: ' + escapeHtml(v.note) + '</span>' : '') +
+        '</div>' +
+      '</div>' +
+      '<div class="vc-actions">' +
+        '<button class="vc-btn primary" onclick="selectVendor(\'' + v.code + '\')">选择</button>' +
+        '<button class="vc-btn" onclick="editVendor(' + v.id + ')">编辑</button>' +
+        '<button class="vc-btn danger" onclick="deleteVendor(' + v.id + ')">删除</button>' +
+      '</div>' +
+    '</div>';
+  });
+  vendorListEl.innerHTML = html;
+}
+
+// 选择厂商并返回主页
+function selectVendor(code) {
+  keyMInput.value = code;
+  vendorSelect.value = code;
+  vendorPage.classList.remove('active');
+  mainPage.classList.add('active');
+  loadVendorDropdown();
+}
+
+// 编辑厂商
+function editVendor(id) {
+  var vendors = getVendors();
+  var found = vendors.filter(function(v) { return v.id === id; });
+  if (found.length === 0) return;
+  var v = found[0];
+  vendorNameInput.value = v.name;
+  vendorCodeInput.value = v.code;
+  vendorNoteInput.value = v.note;
+  editingVendorId = id;
+  vendorAddBtn.textContent = '更新厂商';
+  vendorError.textContent = '';
+  window.scrollTo(0, 0);
+}
+
+// 删除厂商
+function deleteVendor(id) {
+  if (!confirm('确定要删除该厂商吗？')) return;
+  var vendors = getVendors();
+  vendors = vendors.filter(function(v) { return v.id !== id; });
+  saveVendors(vendors);
+  renderVendorList();
+  loadVendorDropdown();
 }
 
 // ==================== 工具函数 ====================
