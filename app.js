@@ -256,15 +256,14 @@ var editingVendorId = null; // 正在编辑的厂商 ID
 
 // ==================== 初始化 ====================
 
-// 设置默认值
-keyKInput.value = '12345678';
-keyDInput.value = '888';
+// 不设置默认值，用户自行输入
 
-// 日期默认今天（YYYY-MM-DD 格式）
-var today = new Date();
-var yyyy = today.getFullYear().toString();
-var mm = (today.getMonth() + 1).toString().padStart(2, '0');
-var dd = today.getDate().toString().padStart(2, '0');
+// 日期默认次日（YYYY-MM-DD 格式）
+var tomorrow = new Date();
+tomorrow.setDate(tomorrow.getDate() + 1);
+var yyyy = tomorrow.getFullYear().toString();
+var mm = (tomorrow.getMonth() + 1).toString().padStart(2, '0');
+var dd = tomorrow.getDate().toString().padStart(2, '0');
 dateInput.value = yyyy + '-' + mm + '-' + dd;
 
 // 加载厂商列表
