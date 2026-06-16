@@ -28,7 +28,7 @@ jobs:
       - name: 准备网页文件
         run: |
           mkdir www
-          cp index.html style.css app.js manifest.json sw.js icon-192.png icon-512.png www/
+          cp index.html style.css app.js md5-lib.js manifest.json sw.js icon-192.png icon-512.png www/
 
       - name: 用 Capacitor 构建 APK
         run: |
