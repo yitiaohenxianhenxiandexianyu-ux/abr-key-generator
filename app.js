@@ -286,12 +286,15 @@ var currentMode = 'normal'; // 'normal' | 'super' | 'update'
 
 var LOGIN_KEY = 'abr_login_verified';
 
-// 已登录则跳过并显示版本号
+// 根据登录状态显示对应页面
 if (localStorage.getItem(LOGIN_KEY) === '1') {
-  loginPage.classList.remove('active');
+  loginPage.style.display = 'none';
   mainPage.classList.add('active');
   var savedSuffix = localStorage.getItem('abr_account_suffix');
   if (savedSuffix) setVersion(savedSuffix);
+} else {
+  loginPage.style.display = '';
+  loginPage.classList.add('active');
 }
 
 loginBtn.addEventListener('click', function() {
@@ -309,6 +312,7 @@ loginBtn.addEventListener('click', function() {
     var suffix = account.length > 6 ? account.substring(account.length - 6) : account;
     localStorage.setItem('abr_account_suffix', suffix);
     setVersion(suffix);
+    loginPage.style.display = 'none';
     loginPage.classList.remove('active');
     mainPage.classList.add('active');
     loginError.textContent = '';
@@ -552,13 +556,13 @@ calcBtn.addEventListener('click', function() {
     var html = '';
     html += '<div class="multi-header">';
     html += '<div>生成日期：' + fmtDate(devDate) + '</div>';
-    html += '<div>厂商校验码：' + escapeHtml(M) + '     特征代码：' + escapeHtml(D) + '</div>';
+    html += '<div>厂商校验码：' + escapeHtml(M_input) + '     特征代码：' + escapeHtml(D) + '</div>';
     html += '</div>';
     html += '<hr class="multi-sep">';
 
     var allText = '';
     allText += '生成日期：\t' + fmtDate(devDate) + '\n';
-    allText += '厂商校验码：\t' + M + '\t特征代码：\t' + D + '\n';
+    allText += '厂商校验码：\t' + M_input + '\t特征代码：\t' + D + '\n';
     allText += '-------------------------------------------------------\n';
 
     for (var r = 0; r < results.length; r++) {
