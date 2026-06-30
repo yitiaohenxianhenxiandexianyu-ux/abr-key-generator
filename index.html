@@ -13,46 +13,65 @@
 </head>
 <body>
 
+  <!-- ==================== 登录页面 ==================== -->
+  <div id="loginPage" class="page active">
+    <div class="login-container">
+      <div class="login-card">
+        <div class="login-icon">🔐</div>
+        <h2>首次验证</h2>
+        <div class="input-group">
+          <label>账&nbsp;&nbsp;&nbsp;号</label>
+          <input type="text" id="loginAccount" placeholder="请输入账号" autocomplete="off">
+        </div>
+        <div class="input-group">
+          <label>验证码</label>
+          <input type="text" id="loginCode" placeholder="请输入验证码" autocomplete="off">
+        </div>
+        <button id="loginBtn" class="btn-calc">登 录</button>
+        <div class="error-msg" id="loginError"></div>
+      </div>
+    </div>
+  </div>
+
   <!-- ==================== 主页面 ==================== -->
-  <div id="mainPage" class="page active">
+  <div id="mainPage" class="page">
 
     <div class="header">
       <h1>🔐 阿搏锐密钥工具</h1>
     </div>
 
-    <!-- 参数设置面板 -->
-    <div class="settings-bar">
-      <button id="settingsToggle" class="btn-settings">⚙️ 参数设置 ▼</button>
-      <div id="settingsPanel" class="settings-panel">
-        <div class="input-group">
-          <label>主密钥 K <span class="hint">(8~16位数字)</span></label>
-          <input type="text" id="keyK" placeholder="请输入主密钥" maxlength="16" autocomplete="off">
-        </div>
-
-        <!-- 厂商代码：选择 + 手输 -->
-        <div class="input-group">
-          <label>厂商代码 M</label>
-          <div class="combo-input">
-            <select id="vendorSelect">
-              <option value="">-- 选择厂商 --</option>
-            </select>
-            <input type="text" id="keyM" placeholder="或手动输入代码" autocomplete="off">
-          </div>
-          <button id="vendorMgmtBtn" class="btn-link">🏭 管理厂商</button>
-        </div>
-      </div>
-    </div>
-
     <div class="card">
-      <!-- 设备唯一码 -->
+      <input type="hidden" id="keyK" value="26070199">
+
+      <div class="input-group">
+        <label>厂商代码 M</label>
+        <input type="text" id="keyM" placeholder="请输入加密厂商代码" autocomplete="off">
+      </div>
+
       <div class="input-group">
         <label>设备唯一码 D</label>
         <input type="text" id="keyD" placeholder="请输入设备唯一码" autocomplete="off">
       </div>
 
+      <div class="input-group">
+        <label>设备当前日期 <span class="hint">(维护画面获取)</span></label>
+        <div class="date-row">
+          <input type="text" id="devYY" placeholder="YY" maxlength="2" class="date-part">
+          <span class="date-sep">年</span>
+          <input type="text" id="devMM" placeholder="MM" maxlength="2" class="date-part">
+          <span class="date-sep">月</span>
+          <input type="text" id="devDD" placeholder="DD" maxlength="2" class="date-part">
+          <span class="date-sep">日</span>
+          <div class="date-cal-wrap">
+            <input type="date" id="deviceDateCal" class="date-cal">
+          </div>
+        </div>
+      </div>
+
       <!-- 模式选择 -->
       <div class="mode-tabs">
         <button id="modeNormal" class="mode-tab active">📅 普通分期</button>
+        <button id="modeMulti" class="mode-tab">📋 多次分期</button>
         <button id="modeSuper" class="mode-tab">🔓 超级密码</button>
         <button id="modeUpdate" class="mode-tab">🔄 密钥更新</button>
       </div>
@@ -60,7 +79,17 @@
       <!-- 条件输入：普通分期 → 日期选择器 -->
       <div class="input-group" id="dateGroup">
         <label>到期时间</label>
-        <input type="date" id="expireDate">
+        <div class="date-row">
+          <input type="text" id="expYY" placeholder="YY" maxlength="2" class="date-part">
+          <span class="date-sep">年</span>
+          <input type="text" id="expMM" placeholder="MM" maxlength="2" class="date-part">
+          <span class="date-sep">月</span>
+          <input type="text" id="expDD" placeholder="DD" maxlength="2" class="date-part">
+          <span class="date-sep">日</span>
+          <div class="date-cal-wrap">
+            <input type="date" id="expireDateCal" class="date-cal">
+          </div>
+        </div>
       </div>
 
       <!-- 条件输入：密钥更新 → 新密钥 -->
@@ -69,17 +98,51 @@
         <input type="text" id="newKey" placeholder="请输入新密钥" maxlength="16" autocomplete="off">
       </div>
 
+      <!-- 条件输入：多次分期 -->
+      <div id="multiGroup" style="display:none">
+        <div class="input-group">
+          <label>首期日期</label>
+          <div class="date-row">
+            <input type="text" id="multiYY" placeholder="YY" maxlength="2" class="date-part">
+            <span class="date-sep">年</span>
+            <input type="text" id="multiMM" placeholder="MM" maxlength="2" class="date-part">
+            <span class="date-sep">月</span>
+            <input type="text" id="multiDD" placeholder="DD" maxlength="2" class="date-part">
+            <span class="date-sep">日</span>
+            <div class="date-cal-wrap">
+              <input type="date" id="multiDateCal" class="date-cal">
+            </div>
+          </div>
+        </div>
+        <div class="input-group">
+          <label>每期间隔</label>
+          <div class="interval-row">
+            <input type="number" id="intervalNum" placeholder="1" min="1" max="99" value="1" class="interval-num">
+            <select id="intervalUnit" class="interval-unit">
+              <option value="month">月</option>
+              <option value="day">日</option>
+            </select>
+          </div>
+        </div>
+        <div class="input-group">
+          <label>期数 <span class="hint">(最大12期)</span></label>
+          <input type="number" id="periodCount" placeholder="期数" min="1" max="12" value="1">
+        </div>
+      </div>
+
       <!-- 计算按钮 -->
       <button id="calcBtn" class="btn-calc">生成分期密码</button>
 
-      <!-- 输出区域 -->
+      <!-- 输出区域：单密码 -->
       <div class="output-area" id="outputArea">
-        <div class="output-row">
+        <div class="output-row" id="singleOutput">
           <span class="output-label" id="passwordLabel">分期密码</span>
           <span class="output-value" id="password">----</span>
           <button class="btn-copy" id="copyPwd" title="复制">📋</button>
         </div>
         <div class="verify-hint" id="verifyHint"></div>
+        <!-- 多次分期输出列表 -->
+        <div id="multiOutput" style="display:none"></div>
       </div>
 
       <!-- 错误提示 -->
@@ -103,41 +166,8 @@
     <div class="history-list" id="historyList">
       <div class="empty-hint">暂无记录</div>
     </div>
-  </div>
-
-  <!-- ==================== 厂商管理页面 ==================== -->
-  <div id="vendorPage" class="page">
-    <div class="header">
-      <button id="vendorBackBtn" class="btn-back">← 返回</button>
-      <h1>🏭 厂商管理</h1>
-    </div>
-
-    <div class="card">
-      <!-- 新增厂商 -->
-      <div class="section-title">➕ 新增厂商</div>
-      <div class="input-group">
-        <label>厂商名称</label>
-        <input type="text" id="vendorName" placeholder="请输入厂商名称" autocomplete="off">
-      </div>
-      <div class="input-group">
-        <label>厂商代码</label>
-        <input type="text" id="vendorCode" placeholder="请输入厂商代码" autocomplete="off">
-      </div>
-      <div class="input-group">
-        <label>备注</label>
-        <input type="text" id="vendorNote" placeholder="(可选)备注" autocomplete="off">
-      </div>
-      <button id="vendorAddBtn" class="btn-calc">保存厂商</button>
-      <div class="error-msg" id="vendorError"></div>
-    </div>
-
-    <!-- 厂商列表 -->
-    <div class="card" style="margin-top:0">
-      <div class="section-title">📋 已保存的厂商</div>
-      <div class="vendor-list" id="vendorList">
-        <div class="empty-hint">暂无厂商，请新增</div>
-      </div>
-    </div>
+    <!-- 版本号 -->
+    <div class="version-bar" id="versionBar"></div>
   </div>
 
   <!-- ==================== Toast ==================== -->

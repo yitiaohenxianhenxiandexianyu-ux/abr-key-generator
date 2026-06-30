@@ -156,9 +156,9 @@ function runSelfTest() {
   var M = '100';
   var D = '888';
 
-  // 测试 MD5 向量
+  // 测试 MD5 向量（Lua 兼容版）
   var md5Test = md5('1234567890');
-  if (md5Test !== 'e807f1fcf82d132f9bb018ca6738a19f') {
+  if (md5Test !== '9ed230bf27771ea96211d8eb78fd4317') {
     return 'MD5 自检失败: ' + md5Test;
   }
 
@@ -173,6 +173,8 @@ function runSelfTest() {
   if (!verify_normal.ok || verify_normal.T !== '260630') {
     return '普通密码自洽失败: ' + JSON.stringify(verify_normal);
   }
+
+  console.log('自检: MD5=' + md5Test + ' password=' + pwd_normal);
 
   // 测试超级密码
   var pwd_super = generate_password(K, M, D, '999999');
@@ -201,29 +203,61 @@ function runSelfTest() {
 // ============================================================
 
 // DOM 元素
+var loginPage = document.getElementById('loginPage');
+var loginAccount = document.getElementById('loginAccount');
+var loginCode = document.getElementById('loginCode');
+var loginBtn = document.getElementById('loginBtn');
+var loginError = document.getElementById('loginError');
 var mainPage = document.getElementById('mainPage');
 var historyPage = document.getElementById('historyPage');
-var vendorPage = document.getElementById('vendorPage');
 
 // 设置面板
-var settingsToggle = document.getElementById('settingsToggle');
-var settingsPanel = document.getElementById('settingsPanel');
 var keyKInput = document.getElementById('keyK');
 var keyMInput = document.getElementById('keyM');
 var keyDInput = document.getElementById('keyD');
-var vendorSelect = document.getElementById('vendorSelect');
-var vendorMgmtBtn = document.getElementById('vendorMgmtBtn');
-
 // 模式选择
 var modeNormal = document.getElementById('modeNormal');
+var modeMulti = document.getElementById('modeMulti');
 var modeSuper = document.getElementById('modeSuper');
 var modeUpdate = document.getElementById('modeUpdate');
 
 // 输入区域
 var dateGroup = document.getElementById('dateGroup');
-var dateInput = document.getElementById('expireDate');
+var multiGroup = document.getElementById('multiGroup');
+// 到期时间三列
+var expYY = document.getElementById('expYY');
+var expMM = document.getElementById('expMM');
+var expDD = document.getElementById('expDD');
+var dateCalInput = document.getElementById('expireDateCal');
+// 设备日期三列
+var devYY = document.getElementById('devYY');
+var devMM = document.getElementById('devMM');
+var devDD = document.getElementById('devDD');
+var deviceDateCalInput = document.getElementById('deviceDateCal');
+
+// 辅助：从三列拼 YYMMDD，设置三列值
+function getYYMMDD(yyEl, mmEl, ddEl) {
+  var y = yyEl.value.trim(), m = mmEl.value.trim(), d = ddEl.value.trim();
+  if (y.length === 2 && m.length === 2 && d.length === 2) return y + m + d;
+  return '';
+}
+function setYYMMDD(yyEl, mmEl, ddEl, yymmdd) {
+  yyEl.value = yymmdd.substring(0, 2);
+  mmEl.value = yymmdd.substring(2, 4);
+  ddEl.value = yymmdd.substring(4, 6);
+}
 var newKeyGroup = document.getElementById('newKeyGroup');
 var newKeyInput = document.getElementById('newKey');
+// 多次分期
+var multiYY = document.getElementById('multiYY');
+var multiMM = document.getElementById('multiMM');
+var multiDD = document.getElementById('multiDD');
+var multiDateCal = document.getElementById('multiDateCal');
+var intervalNum = document.getElementById('intervalNum');
+var intervalUnit = document.getElementById('intervalUnit');
+var periodCount = document.getElementById('periodCount');
+var singleOutput = document.getElementById('singleOutput');
+var multiOutput = document.getElementById('multiOutput');
 
 // 输出区域
 var calcBtn = document.getElementById('calcBtn');
@@ -240,35 +274,128 @@ var backBtn = document.getElementById('backBtn');
 var clearBtn = document.getElementById('clearBtn');
 var historyList = document.getElementById('historyList');
 
-// 厂商管理
-var vendorBackBtn = document.getElementById('vendorBackBtn');
-var vendorNameInput = document.getElementById('vendorName');
-var vendorCodeInput = document.getElementById('vendorCode');
-var vendorNoteInput = document.getElementById('vendorNote');
-var vendorAddBtn = document.getElementById('vendorAddBtn');
-var vendorError = document.getElementById('vendorError');
-var vendorListEl = document.getElementById('vendorList');
-
 // ==================== 状态 ====================
 
 var currentMode = 'normal'; // 'normal' | 'super' | 'update'
-var editingVendorId = null; // 正在编辑的厂商 ID
 
 // ==================== 初始化 ====================
 
 // 不设置默认值，用户自行输入
 
-// 日期默认次日（YYYY-MM-DD 格式）
+// ==================== 登录验证 ====================
+
+var LOGIN_KEY = 'abr_login_verified';
+
+// 已登录则跳过并显示版本号
+if (localStorage.getItem(LOGIN_KEY) === '1') {
+  loginPage.classList.remove('active');
+  mainPage.classList.add('active');
+  var savedSuffix = localStorage.getItem('abr_account_suffix');
+  if (savedSuffix) setVersion(savedSuffix);
+}
+
+loginBtn.addEventListener('click', function() {
+  var account = loginAccount.value.trim();
+  var code = loginCode.value.trim();
+  if (!account) { loginError.textContent = '请输入账号'; return; }
+  if (!/^\d+$/.test(account)) { loginError.textContent = '账号必须为纯数字'; return; }
+  if (!code) { loginError.textContent = '请输入验证码'; return; }
+
+  var K = document.getElementById('keyK').value;
+  var encrypted = vigenereEncrypt(account, K);
+  if (encrypted === code) {
+    localStorage.setItem(LOGIN_KEY, '1');
+    // 保存账号后缀用于版本号
+    var suffix = account.length > 6 ? account.substring(account.length - 6) : account;
+    localStorage.setItem('abr_account_suffix', suffix);
+    setVersion(suffix);
+    loginPage.classList.remove('active');
+    mainPage.classList.add('active');
+    loginError.textContent = '';
+  } else {
+    loginError.textContent = '验证失败，请检查账号和验证码';
+  }
+});
+
+// 到期时间默认次日
 var tomorrow = new Date();
 tomorrow.setDate(tomorrow.getDate() + 1);
-var yyyy = tomorrow.getFullYear().toString();
-var mm = (tomorrow.getMonth() + 1).toString().padStart(2, '0');
-var dd = tomorrow.getDate().toString().padStart(2, '0');
-dateInput.value = yyyy + '-' + mm + '-' + dd;
+setYYMMDD(expYY, expMM, expDD,
+  tomorrow.getFullYear().toString().substring(2) +
+  (tomorrow.getMonth() + 1).toString().padStart(2, '0') +
+  tomorrow.getDate().toString().padStart(2, '0'));
+dateCalInput.value = tomorrow.getFullYear().toString() + '-' +
+  (tomorrow.getMonth() + 1).toString().padStart(2, '0') + '-' +
+  tomorrow.getDate().toString().padStart(2, '0');
 
-// 加载厂商列表
-loadVendorDropdown();
+// 设备当前日期默认今天
+var todayDate = new Date();
+setYYMMDD(devYY, devMM, devDD,
+  todayDate.getFullYear().toString().substring(2) +
+  (todayDate.getMonth() + 1).toString().padStart(2, '0') +
+  todayDate.getDate().toString().padStart(2, '0'));
+deviceDateCalInput.value = todayDate.getFullYear().toString() + '-' +
+  (todayDate.getMonth() + 1).toString().padStart(2, '0') + '-' +
+  todayDate.getDate().toString().padStart(2, '0');
 
+// ==================== 日期同步 ====================
+
+function syncCalToInputs(calInput, yyEl, mmEl, ddEl) {
+  calInput.addEventListener('change', function() {
+    var yymmdd = dateToYYMMDD(calInput.value);
+    setYYMMDD(yyEl, mmEl, ddEl, yymmdd);
+  });
+}
+function syncInputsToCal(yyEl, mmEl, ddEl, calInput) {
+  var sync = function() {
+    var v = getYYMMDD(yyEl, mmEl, ddEl);
+    if (v.length === 6) calInput.value = yyMMDDtoDate(v);
+  };
+  yyEl.addEventListener('input', sync);
+  mmEl.addEventListener('input', sync);
+  ddEl.addEventListener('input', sync);
+}
+
+syncCalToInputs(deviceDateCalInput, devYY, devMM, devDD);
+syncInputsToCal(devYY, devMM, devDD, deviceDateCalInput);
+syncCalToInputs(dateCalInput, expYY, expMM, expDD);
+syncInputsToCal(expYY, expMM, expDD, dateCalInput);
+syncCalToInputs(multiDateCal, multiYY, multiMM, multiDD);
+syncInputsToCal(multiYY, multiMM, multiDD, multiDateCal);
+
+// ==================== Vigenère 加解密 ====================
+
+function vigenereEncrypt(plainStr, keyStr) {
+  var result = '';
+  var keyLen = keyStr.length;
+  for (var i = 0; i < plainStr.length; i++) {
+    var digit = parseInt(plainStr.charAt(i));
+    var keyDigit = parseInt(keyStr.charAt(i % keyLen));
+    var newDigit = (digit + keyDigit) % 10;
+    result += newDigit.toString();
+  }
+  return result;
+}
+
+function vigenereDecrypt(encryptedStr, keyStr) {
+  var result = '';
+  var keyLen = keyStr.length;
+  for (var i = 0; i < encryptedStr.length; i++) {
+    var digit = parseInt(encryptedStr.charAt(i));
+    var keyDigit = parseInt(keyStr.charAt(i % keyLen));
+    var newDigit = (digit - keyDigit + 10) % 10;
+    result += newDigit.toString();
+  }
+  return result;
+}
+
+// 获取真实厂商码（自动解密）
+function getRealM() {
+  var inputM = keyMInput.value.trim();
+  var K = keyKInput.value.trim();
+  if (!inputM || !K) return inputM;
+  return vigenereDecrypt(inputM, K);
+}
 // ==================== 日期格式转换 ====================
 
 // YYYY-MM-DD → YYMMDD
@@ -283,21 +410,10 @@ function yyMMDDtoDate(yymmdd) {
   return '20' + yymmdd.substring(0,2) + '-' + yymmdd.substring(2,4) + '-' + yymmdd.substring(4,6);
 }
 
-// ==================== 设置面板折叠 ====================
-
-settingsToggle.addEventListener('click', function() {
-  if (settingsPanel.style.display === 'none') {
-    settingsPanel.style.display = 'block';
-    settingsToggle.textContent = '⚙️ 参数设置 ▲';
-  } else {
-    settingsPanel.style.display = 'none';
-    settingsToggle.textContent = '⚙️ 参数设置 ▼';
-  }
-});
-
 // ==================== 模式切换 ====================
 
 modeNormal.addEventListener('click', function() { switchMode('normal'); });
+modeMulti.addEventListener('click', function() { switchMode('multi'); });
 modeSuper.addEventListener('click', function() { switchMode('super'); });
 modeUpdate.addEventListener('click', function() { switchMode('update'); });
 
@@ -306,23 +422,35 @@ function switchMode(mode) {
 
   // 更新标签样式
   modeNormal.className = mode === 'normal' ? 'mode-tab active' : 'mode-tab';
+  modeMulti.className = mode === 'multi' ? 'mode-tab active' : 'mode-tab';
   modeSuper.className = mode === 'super' ? 'mode-tab active' : 'mode-tab';
   modeUpdate.className = mode === 'update' ? 'mode-tab active' : 'mode-tab';
 
-  // 切换输入区域
+  // 隐藏所有条件区域
+  dateGroup.style.display = 'none';
+  newKeyGroup.style.display = 'none';
+  multiGroup.style.display = 'none';
+  singleOutput.style.display = 'none';
+  multiOutput.style.display = 'none';
+
   if (mode === 'normal') {
     dateGroup.style.display = 'block';
-    newKeyGroup.style.display = 'none';
+    singleOutput.style.display = '';
     passwordLabel.textContent = '分期密码';
     calcBtn.textContent = '生成分期密码';
+  } else if (mode === 'multi') {
+    multiGroup.style.display = 'block';
+    multiOutput.style.display = 'block';
+    calcBtn.textContent = '生成多期密码';
+    // 初始化首期日期为到期时间的值
+    if (!multiYY.value) setYYMMDD(multiYY, multiMM, multiDD, getYYMMDD(expYY, expMM, expDD));
   } else if (mode === 'super') {
-    dateGroup.style.display = 'none';
-    newKeyGroup.style.display = 'none';
+    singleOutput.style.display = '';
     passwordLabel.textContent = '超级密码';
     calcBtn.textContent = '生成超级密码';
   } else if (mode === 'update') {
-    dateGroup.style.display = 'none';
     newKeyGroup.style.display = 'block';
+    singleOutput.style.display = '';
     passwordLabel.textContent = '更新密码';
     calcBtn.textContent = '生成更新密码';
   }
@@ -337,15 +465,16 @@ function switchMode(mode) {
 
 calcBtn.addEventListener('click', function() {
   var K = keyKInput.value.trim();
-  var M = keyMInput.value.trim();
+  var M_input = keyMInput.value.trim();
+  var M = getRealM(); // 解密后的真实厂商码
   var D = keyDInput.value.trim();
 
   // 校验
   if (!K) { showError('请设置主密钥 K'); return; }
   if (K.length < 8 || K.length > 16) { showError('主密钥 K 需为 8~16 位数字'); return; }
   if (!/^\d+$/.test(K)) { showError('主密钥 K 必须为纯数字'); return; }
-  if (!M) { showError('请设置厂商代码 M'); return; }
-  if (!/^\d+$/.test(M)) { showError('厂商代码 M 必须为纯数字'); return; }
+  if (!M_input) { showError('请输入厂商代码 M'); return; }
+  if (!/^\d+$/.test(M_input)) { showError('厂商代码 M 必须为纯数字'); return; }
   if (!D) { showError('请输入设备唯一码 D'); return; }
   if (!/^\d+$/.test(D)) { showError('设备唯一码 D 必须为纯数字'); return; }
 
@@ -354,12 +483,115 @@ calcBtn.addEventListener('click', function() {
   var desc = '';
 
   if (currentMode === 'normal') {
-    var dateVal = dateInput.value.trim();
-    if (!dateVal) { showError('请选择到期时间'); return; }
-    T = dateToYYMMDD(dateVal);
-    if (!T || T.length !== 6) { showError('日期转换失败'); return; }
+    T = getYYMMDD(expYY, expMM, expDD);
+    if (!T || T.length !== 6) {
+      showError('到期时间格式错误，请填写 YY MM DD');
+      return;
+    }
     password = generate_password(K, M, D, T);
-    desc = '普通分期密码 (到期: ' + dateVal + ')';
+    desc = '普通分期密码 (到期: ' + T + ')';
+
+  } else if (currentMode === 'multi') {
+    // 多次分期
+    var firstYYMMDD = getYYMMDD(multiYY, multiMM, multiDD);
+    if (!firstYYMMDD || firstYYMMDD.length !== 6) { showError('请填写首期日期'); return; }
+    var ival = parseInt(intervalNum.value) || 1;
+    var iunit = intervalUnit.value; // 'month' or 'day'
+    var periods = parseInt(periodCount.value) || 1;
+    if (periods < 1 || periods > 12) { showError('期数需在 1~12 之间'); return; }
+
+    // 日期运算辅助
+    function addMonths(yymmdd, n) {
+      var yy = parseInt(yymmdd.substring(0,2));
+      var mm = parseInt(yymmdd.substring(2,4));
+      var dd = parseInt(yymmdd.substring(4,6));
+      var totalM = yy * 12 + mm + n;
+      var newYY = Math.floor((totalM - 1) / 12);
+      var newMM = ((totalM - 1) % 12) + 1;
+      // 处理月末溢出：取当月最后一天
+      var daysInMonth = new Date(2000 + newYY, newMM, 0).getDate();
+      if (dd > daysInMonth) dd = daysInMonth;
+      return newYY.toString().padStart(2,'0') +
+             newMM.toString().padStart(2,'0') +
+             dd.toString().padStart(2,'0');
+    }
+    function addDays(yymmdd, n) {
+      var d = new Date(2000 + parseInt(yymmdd.substring(0,2)),
+                       parseInt(yymmdd.substring(2,4)) - 1,
+                       parseInt(yymmdd.substring(4,6)));
+      d.setDate(d.getDate() + n);
+      return d.getFullYear().toString().substring(2) +
+             (d.getMonth() + 1).toString().padStart(2,'0') +
+             d.getDate().toString().padStart(2,'0');
+    }
+
+    var results = [];
+    var currentT = firstYYMMDD;
+    for (var p = 0; p < periods; p++) {
+      var pwd = generate_password(K, M, D, currentT);
+      results.push({ period: p + 1, T: currentT, password: pwd });
+      if (iunit === 'month') {
+        currentT = addMonths(currentT, ival);
+      } else {
+        currentT = addDays(currentT, ival);
+      }
+    }
+
+    // 超级密码
+    var superPwd = generate_password(K, M, D, '999999');
+
+    // 日期格式化
+    function fmtDate(yymmdd) {
+      return '20' + yymmdd.substring(0,2) + '-' + yymmdd.substring(2,4) + '-' + yymmdd.substring(4,6);
+    }
+
+    // 设备当前日期
+    var devDate = getYYMMDD(devYY, devMM, devDD) || dateToYYMMDD(new Date().toISOString().split('T')[0]);
+
+    // 渲染多期结果
+    var html = '';
+    html += '<div class="multi-header">';
+    html += '<div>生成日期：' + fmtDate(devDate) + '</div>';
+    html += '<div>厂商校验码：' + escapeHtml(M) + '     特征代码：' + escapeHtml(D) + '</div>';
+    html += '</div>';
+    html += '<hr class="multi-sep">';
+
+    var allText = '';
+    allText += '生成日期：\t' + fmtDate(devDate) + '\n';
+    allText += '厂商校验码：\t' + M + '\t特征代码：\t' + D + '\n';
+    allText += '-------------------------------------------------------\n';
+
+    for (var r = 0; r < results.length; r++) {
+      var item = results[r];
+      html += '<div class="multi-item">' +
+        '<span class="mi-label">第' + item.period + '期授权码：</span>' +
+        '<span class="mi-value">' + item.password + '</span>' +
+        '<span class="mi-date">(到期日：' + fmtDate(item.T) + ')</span>' +
+        '</div>';
+      allText += '第' + item.period + '期授权码：\t' + item.password + '\t(到期日：\t' + fmtDate(item.T) + ')\n';
+    }
+
+    html += '<hr class="multi-sep">';
+    html += '<div class="multi-item multi-unlock">' +
+      '<span class="mi-label">完全解锁码：</span>' +
+      '<span class="mi-value">' + superPwd + '</span>' +
+      '</div>';
+    allText += '-------------------------------------------------------\n';
+    allText += '完全解锁码：\t' + superPwd;
+
+    html += '<button id="btnCopyAll" class="btn-copy-all">📋 复制全部</button>';
+    multiOutput.innerHTML = html;
+    multiOutput.style.display = 'block';
+    outputArea.classList.add('show');
+    verifyHint.textContent = '';
+    // 绑定复制按钮
+    var allTextCopy = allText.trim();
+    document.getElementById('btnCopyAll').addEventListener('click', function() {
+      copyText(allTextCopy);
+    });
+    // 保存历史
+    saveHistory(K, M, D, firstYYMMDD + ' 共' + periods + '期', allText.trim().replace(/\t/g, ' '), desc);
+    return; // 跳过单密码输出
 
   } else if (currentMode === 'super') {
     T = '999999';
@@ -399,7 +631,19 @@ calcBtn.addEventListener('click', function() {
       } else if (v.type === 'update') {
         verifyStr = '✅ 自检通过 → 类型: 密钥更新前导';
       } else {
-        verifyStr = '✅ 自检通过 → 解密到期日: 20' + v.T.substring(0,2) + '-' + v.T.substring(2,4) + '-' + v.T.substring(4,6);
+        var decDate = '20' + v.T.substring(0,2) + '-' + v.T.substring(2,4) + '-' + v.T.substring(4,6);
+        verifyStr = '✅ 自检通过 → 解密到期日: ' + decDate;
+
+        // 对比设备当前日期，判断是否过期
+        var devYYMMDD = getYYMMDD(devYY, devMM, devDD);
+        var devDate = deviceDateCalInput.value;
+        if (devDate && devYYMMDD.length === 6) {
+          if (v.T <= devYYMMDD) {
+            verifyStr += ' ⚠️ 设备日期(' + devDate + ')已超过到期日，密码将失效！';
+          } else {
+            verifyStr += ' | 设备日期(' + devDate + ')未到期 ✅';
+          }
+        }
       }
     } else {
       verifyStr = '❌ 自检失败: ' + v.error;
@@ -408,7 +652,7 @@ calcBtn.addEventListener('click', function() {
   verifyHint.textContent = verifyStr;
 
   // 保存历史（日期用 YYYY-MM-DD 显示格式）
-  var historyT = (currentMode === 'normal') ? dateInput.value : (T === '999999' ? '永久' : T);
+  var historyT = (currentMode === 'normal') ? getYYMMDD(expYY, expMM, expDD) : (T === '999999' ? '永久' : T);
   saveHistory(K, M, D, historyT, password, desc);
 });
 
@@ -475,7 +719,6 @@ function loadHistory() {
   records.forEach(function(r) {
     html += '<div class="history-item">' +
       '<div class="hi-time">🕐 ' + escapeHtml(r.time) + '</div>' +
-      '<div class="hi-row"><span>主密钥 K</span><span>' + escapeHtml(r.K) + '</span></div>' +
       '<div class="hi-row"><span>厂商码 M</span><span>' + escapeHtml(r.M) + '</span></div>' +
       '<div class="hi-row"><span>设备码 D</span><span>' + escapeHtml(r.D) + '</span></div>' +
       '<div class="hi-row"><span>T</span><span>' + escapeHtml(r.T) + '</span></div>' +
@@ -486,188 +729,11 @@ function loadHistory() {
   historyList.innerHTML = html;
 }
 
-// ==================== 厂商管理 ====================
+// ==================== 版本号 ====================
 
-var VENDOR_KEY = 'vendorList';
-
-function getVendors() {
-  try {
-    var data = localStorage.getItem(VENDOR_KEY);
-    return data ? JSON.parse(data) : [];
-  } catch (e) { return []; }
-}
-
-function saveVendors(list) {
-  localStorage.setItem(VENDOR_KEY, JSON.stringify(list));
-}
-
-function loadVendorDropdown() {
-  var vendors = getVendors();
-  vendorSelect.innerHTML = '<option value="">-- 选择厂商 --</option>';
-  vendors.forEach(function(v) {
-    var opt = document.createElement('option');
-    opt.value = v.code;
-    opt.textContent = v.name + ' (' + v.code + ')';
-    vendorSelect.appendChild(opt);
-  });
-  // 恢复之前选中的值
-  if (keyMInput.value) {
-    vendorSelect.value = keyMInput.value;
-  }
-}
-
-// 厂商选择变化 → 自动填充 M 输入框
-vendorSelect.addEventListener('change', function() {
-  if (vendorSelect.value) {
-    keyMInput.value = vendorSelect.value;
-    // 显示厂商名称提示
-    var vendors = getVendors();
-    var found = vendors.filter(function(v) { return v.code === vendorSelect.value; });
-    if (found.length > 0) {
-      keyMInput.placeholder = found[0].name;
-    }
-  }
-});
-
-// M 输入框手动输入 → 同步下拉框
-keyMInput.addEventListener('input', function() {
-  if (keyMInput.value) {
-    vendorSelect.value = keyMInput.value;
-  } else {
-    vendorSelect.value = '';
-  }
-});
-
-// 打开厂商管理页面
-vendorMgmtBtn.addEventListener('click', function() {
-  mainPage.classList.remove('active');
-  vendorPage.classList.add('active');
-  editingVendorId = null;
-  vendorNameInput.value = '';
-  vendorCodeInput.value = '';
-  vendorNoteInput.value = '';
-  vendorAddBtn.textContent = '保存厂商';
-  vendorError.textContent = '';
-  renderVendorList();
-});
-
-// 返回主页
-vendorBackBtn.addEventListener('click', function() {
-  vendorPage.classList.remove('active');
-  mainPage.classList.add('active');
-  loadVendorDropdown();
-});
-
-// 新增/编辑厂商
-vendorAddBtn.addEventListener('click', function() {
-  var name = vendorNameInput.value.trim();
-  var code = vendorCodeInput.value.trim();
-  var note = vendorNoteInput.value.trim();
-
-  if (!name) { vendorError.textContent = '请输入厂商名称'; return; }
-  if (!code) { vendorError.textContent = '请输入厂商代码'; return; }
-  if (!/^\d+$/.test(code)) { vendorError.textContent = '厂商代码必须为纯数字'; return; }
-
-  var vendors = getVendors();
-
-  if (editingVendorId) {
-    // 编辑模式
-    var idx = -1;
-    for (var i = 0; i < vendors.length; i++) {
-      if (vendors[i].id === editingVendorId) { idx = i; break; }
-    }
-    if (idx >= 0) {
-      vendors[idx].name = name;
-      vendors[idx].code = code;
-      vendors[idx].note = note;
-    }
-    editingVendorId = null;
-    vendorAddBtn.textContent = '保存厂商';
-  } else {
-    // 检查代码重复
-    var dup = vendors.filter(function(v) { return v.code === code; });
-    if (dup.length > 0) {
-      vendorError.textContent = '厂商代码 ' + code + ' 已存在';
-      return;
-    }
-    vendors.push({
-      id: Date.now(),
-      name: name,
-      code: code,
-      note: note
-    });
-  }
-
-  saveVendors(vendors);
-  vendorNameInput.value = '';
-  vendorCodeInput.value = '';
-  vendorNoteInput.value = '';
-  vendorError.textContent = '✅ 保存成功';
-  setTimeout(function() { vendorError.textContent = ''; }, 2000);
-  renderVendorList();
-  loadVendorDropdown();
-});
-
-// 渲染厂商列表
-function renderVendorList() {
-  var vendors = getVendors();
-  if (vendors.length === 0) {
-    vendorListEl.innerHTML = '<div class="empty-hint">暂无厂商，请新增</div>';
-    return;
-  }
-
-  var html = '';
-  vendors.forEach(function(v) {
-    html += '<div class="vendor-card">' +
-      '<div class="vc-info">' +
-        '<div class="vc-name">' + escapeHtml(v.name) + '</div>' +
-        '<div class="vc-meta">' +
-          '<span>代码: ' + escapeHtml(v.code) + '</span>' +
-          (v.note ? '<span>备注: ' + escapeHtml(v.note) + '</span>' : '') +
-        '</div>' +
-      '</div>' +
-      '<div class="vc-actions">' +
-        '<button class="vc-btn primary" onclick="selectVendor(\'' + v.code + '\')">选择</button>' +
-        '<button class="vc-btn" onclick="editVendor(' + v.id + ')">编辑</button>' +
-        '<button class="vc-btn danger" onclick="deleteVendor(' + v.id + ')">删除</button>' +
-      '</div>' +
-    '</div>';
-  });
-  vendorListEl.innerHTML = html;
-}
-
-// 选择厂商并返回主页
-function selectVendor(code) {
-  keyMInput.value = code;
-  vendorSelect.value = code;
-  vendorPage.classList.remove('active');
-  mainPage.classList.add('active');
-  loadVendorDropdown();
-}
-
-// 编辑厂商
-function editVendor(id) {
-  var vendors = getVendors();
-  var found = vendors.filter(function(v) { return v.id === id; });
-  if (found.length === 0) return;
-  var v = found[0];
-  vendorNameInput.value = v.name;
-  vendorCodeInput.value = v.code;
-  vendorNoteInput.value = v.note;
-  editingVendorId = id;
-  vendorAddBtn.textContent = '更新厂商';
-  vendorError.textContent = '';
-  window.scrollTo(0, 0);
-}
-
-// 删除厂商
-function deleteVendor(id) {
-  if (!confirm('确定要删除该厂商吗？')) return;
-  var vendors = getVendors();
-  vendors = vendors.filter(function(v) { return v.id !== id; });
-  saveVendors(vendors);
-  renderVendorList();
-  loadVendorDropdown();
+function setVersion(suffix) {
+  var vb = document.getElementById('versionBar');
+  if (vb) vb.textContent = 'V0.1.2512' + suffix;
 }
 
 // ==================== 工具函数 ====================

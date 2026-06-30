@@ -52,29 +52,35 @@ body {
 }
 
 /* 设置面板 */
-.settings-bar { margin: 12px 16px 0; }
-.btn-settings {
+/* 登录页面 */
+.login-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 20px;
+}
+.login-card {
+  background: #fff;
+  border-radius: 16px;
+  padding: 40px 24px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.12);
   width: 100%;
-  padding: 10px;
-  background: #fff;
-  color: #555;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  font-size: 15px;
-  font-weight: 600;
-  cursor: pointer;
+  max-width: 360px;
+  text-align: center;
+}
+.login-icon { font-size: 48px; margin-bottom: 8px; }
+.login-card h2 {
+  font-size: 20px;
+  color: #333;
+  margin-bottom: 24px;
+  font-weight: 700;
+}
+.login-card .input-group {
   text-align: left;
-  transition: background 0.2s;
+  margin-bottom: 14px;
 }
-.btn-settings:active { background: #f5f5f5; }
-.settings-panel {
-  background: #fff;
-  margin-top: 8px;
-  border-radius: 10px;
-  padding: 14px;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.08);
-}
-.settings-panel .input-group:last-child { margin-bottom: 0; }
+.login-card .btn-calc { margin-top: 8px; }
 
 /* 卡片 */
 .card {
@@ -100,6 +106,99 @@ body {
   background: #fafafa;
 }
 .input-group input:focus { border-color: #1a73e8; background: #fff; }
+
+/* 日期三列+日历按钮 */
+.date-row {
+  display: flex !important;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+}
+.date-row .date-part {
+  flex: 1 !important;
+  width: auto !important;
+  min-width: 0;
+  text-align: center;
+  padding: 10px 2px;
+}
+.date-row .date-sep {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.date-row .date-cal-wrap {
+  flex-shrink: 0;
+  margin-left: 4px;
+}
+.date-row .date-sep {
+  font-size: 12px;
+  color: #999;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.date-row .date-cal-wrap {
+  position: relative;
+  width: 36px;
+  height: 38px;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+.date-row .date-cal {
+  position: absolute;
+  inset: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  opacity: 0;
+  width: 100%;
+}
+.date-row .date-cal-wrap::before {
+  content: '📅';
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  font-size: 18px;
+}
+
+/* 间隔输入行 */
+.interval-row { display: flex; gap: 8px; align-items: center; }
+.interval-row .interval-num { flex: 1; }
+.interval-row .interval-unit { width: 80px; flex-shrink: 0; padding: 12px 8px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 15px; background: #fafafa; outline: none; }
+
+/* 多次分期输出 */
+.multi-item {
+  display: flex;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid #f0f0f0;
+  gap: 8px;
+}
+.multi-item:last-child { border-bottom: none; }
+.multi-item .mi-label { font-size: 13px; color: #888; white-space: nowrap; flex-shrink: 0; }
+.multi-item .mi-value { flex: 1; font-size: 16px; font-weight: 700; color: #1a73e8; font-family: "Courier New", monospace; text-align: center; }
+.multi-header { font-size: 14px; color: #555; line-height: 1.8; }
+.multi-sep { border: none; border-top: 1px dashed #ccc; margin: 10px 0; }
+.multi-item .mi-date { font-size: 12px; color: #999; white-space: nowrap; }
+.multi-unlock { background: #fff8e1; border-radius: 6px; padding: 6px 10px; }
+.multi-unlock .mi-value { color: #e65100; }
+
+.btn-copy-all {
+  display: block;
+  width: 100%;
+  margin-top: 10px;
+  padding: 10px;
+  background: #1a73e8;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.btn-copy-all:active { opacity: 0.8; }
 
 /* 模式选项卡 */
 .mode-tabs {
@@ -247,75 +346,19 @@ body {
   border-radius: 4px;
   margin-top: 6px;
   padding: 6px 10px;
-  letter-spacing: 2px;
+  letter-spacing: 0;
+  white-space: pre-wrap;
+  word-break: break-all;
 }
 
-/* 厂商管理 */
-.combo-input { display: flex; gap: 8px; }
-.combo-input select {
-  flex: 0 0 auto;
-  max-width: 55%;
-  padding: 12px 10px;
-  border: 2px solid #e0e0e0;
-  border-radius: 8px;
-  font-size: 15px;
-  background: #fafafa;
-  outline: none;
+/* 版本号 */
+.version-bar {
+  text-align: center;
+  padding: 8px;
+  font-size: 12px;
+  color: #999;
+  margin-top: 8px;
 }
-.combo-input select:focus { border-color: #1a73e8; }
-.combo-input input { flex: 1; }
-
-.btn-link {
-  background: none;
-  border: none;
-  color: #1a73e8;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  padding: 6px 0;
-  margin-top: 2px;
-  text-align: left;
-}
-.btn-link:active { opacity: 0.7; }
-
-.section-title {
-  font-size: 16px;
-  font-weight: 700;
-  color: #333;
-  margin-bottom: 14px;
-  padding-bottom: 8px;
-  border-bottom: 2px solid #e8f0fe;
-}
-
-/* 厂商列表 */
-.vendor-list { margin-top: 8px; }
-.vendor-card {
-  display: flex;
-  align-items: center;
-  padding: 12px;
-  margin-bottom: 8px;
-  background: #fafafa;
-  border-radius: 8px;
-  border: 1px solid #eee;
-  gap: 10px;
-}
-.vendor-card .vc-info { flex: 1; min-width: 0; }
-.vendor-card .vc-name { font-size: 15px; font-weight: 600; color: #333; }
-.vendor-card .vc-meta { font-size: 12px; color: #999; margin-top: 2px; }
-.vendor-card .vc-meta span { margin-right: 10px; }
-.vendor-card .vc-actions { display: flex; gap: 4px; flex-shrink: 0; }
-.vc-btn {
-  padding: 6px 10px;
-  border: 1px solid #ddd;
-  border-radius: 6px;
-  font-size: 13px;
-  cursor: pointer;
-  background: #fff;
-  color: #555;
-}
-.vc-btn.primary { background: #1a73e8; color: #fff; border-color: #1a73e8; }
-.vc-btn.danger { color: #d93025; border-color: #f5d5d5; }
-.vc-btn:active { transform: scale(0.95); }
 
 /* Toast */
 .toast {

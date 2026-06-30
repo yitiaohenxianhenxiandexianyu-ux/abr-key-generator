@@ -1,5 +1,5 @@
 // 缓存名称（更新版本号可强制刷新缓存）
-var CACHE_NAME = 'pwd-calc-v1';
+var CACHE_NAME = 'pwd-calc-v2';
 
 // 需要缓存的文件
 var urlsToCache = [
