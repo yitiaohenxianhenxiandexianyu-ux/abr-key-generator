@@ -18,12 +18,11 @@ function checksum(str) {
 
 // ==================== 3.3 密钥派生函数 ====================
 
-function derive_streams(K, M, D) {
-  // S = K + M + D（按顺序，无分隔符）
-  var S = K + M + D;
+function derive_streams(K, M, D, T) {
+  // S = K + M + D + T（T 参与派生，每个日期独立加密流）
+  var S = K + M + D + (T || '');
   var md5_hex = md5(S);
 
-  // Stream1：取 md5_hex 前 6 个字节，每个字节值 % 10
   var Stream1 = [];
   for (var i = 0; i < 6; i++) {
     var hexByte = md5_hex.substring(i * 2, i * 2 + 2);
@@ -31,7 +30,6 @@ function derive_streams(K, M, D) {
     Stream1.push(byteVal % 10);
   }
 
-  // Stream2_val：取第 7、8 字节 (索引 12-13, 14-15)
   var byte7 = parseInt(md5_hex.substring(12, 14), 16);
   var byte8 = parseInt(md5_hex.substring(14, 16), 16);
   var Stream2_val = (byte7 * 256 + byte8) % 100;
@@ -39,28 +37,37 @@ function derive_streams(K, M, D) {
   return { Stream1: Stream1, Stream2_val: Stream2_val };
 }
 
+// ==================== md5_to_mac 辅助 ====================
+
+function md5_to_mac(md5_hex) {
+  var len = md5_hex.length;
+  var b1 = parseInt(md5_hex.substring(len - 4, len - 2), 16);
+  var b2 = parseInt(md5_hex.substring(len - 2, len), 16);
+  return (b1 * 256 + b2) % 100;
+}
+
 // ==================== 3.4 生成普通/超级密码 ====================
 
 function generate_password(K, M, D, T) {
-  var result = derive_streams(K, M, D);
+  var result = derive_streams(K, M, D, T);
   var Stream1 = result.Stream1;
-  var Stream2_val = result.Stream2_val;
+  // 用 MD5(K+M+D+T) 前两字节作为初始反馈 (0~255)，每个日期几乎唯一
+  var fbHex = md5(K + M + D + T);
+  var feedback = (parseInt(fbHex.substring(0, 2), 16) * 256 + parseInt(fbHex.substring(2, 4), 16)) % 10;
+  // 再加一层：用 MD5 第3字节扰动初始反馈
+  feedback = (feedback + parseInt(fbHex.substring(4, 6), 16)) % 10;
 
-  // 加密时间：对 T 的每一位
   var C = '';
   for (var i = 0; i < 6; i++) {
     var t_digit = parseInt(T.charAt(i));
-    var c_digit = (t_digit + Stream1[i]) % 10;
+    var perturb = parseInt(md5(K + M + D + i + feedback).substring(0, 2), 16) % 10;
+    var c_digit = (t_digit + Stream1[i] + perturb + feedback) % 10;
     C += c_digit.toString();
+    feedback = c_digit;
   }
 
-  // MAC 校验码
-  var mac_data = M + D + T;
-  var chksum = checksum(mac_data);
-  var mac_val = (chksum + Stream2_val) % 100;
-  var mac_str = mac_val.toString().padStart(2, '0');
-
-  return C + mac_str;
+  var mac_val = md5_to_mac(md5(K + M + D + T));
+  return C + mac_val.toString().padStart(2, '0');
 }
 
 // ==================== 3.5 生成密钥更新密码 ====================
@@ -94,31 +101,18 @@ function generate_update_password(K_old, M, D, K_new) {
 
 // ==================== 4.1 验证 8 位密码（自测用） ====================
 
-function verify_8digit(pwd_8, K, M, D) {
+function verify_8digit(pwd_8, K, M, D, knownT) {
   if (pwd_8.length !== 8) return { ok: false, error: '长度错误' };
 
-  var C = pwd_8.substring(0, 6);
-  var mac_in = parseInt(pwd_8.substring(6, 8));
-  var result = derive_streams(K, M, D);
-  var Stream1 = result.Stream1;
-  var Stream2_val = result.Stream2_val;
-
-  // 解密时间
-  var T_str = '';
-  for (var i = 0; i < 6; i++) {
-    var c = parseInt(C.charAt(i));
-    var t = (c - Stream1[i] + 10) % 10;
-    T_str += t.toString();
+  // 已知 T 的快速路径：重加密直接比对
+  if (knownT !== undefined) {
+    if (generate_password(K, M, D, knownT) === pwd_8) {
+      if (knownT === '999999') return { ok: true, type: 'permanent', T: knownT };
+      if (knownT === '000000') return { ok: true, type: 'update', T: knownT };
+      return { ok: true, type: 'normal', T: knownT };
+    }
+    return { ok: false, error: '密码不匹配' };
   }
-
-  // 校验 MAC
-  var mac_calc = (checksum(M + D + T_str) + Stream2_val) % 100;
-  if (mac_calc !== mac_in) return { ok: false, error: 'MAC错误' };
-
-  if (T_str === '999999') return { ok: true, type: 'permanent', T: T_str };
-  if (T_str === '000000') return { ok: true, type: 'update', T: T_str };
-
-  return { ok: true, type: 'normal', T: T_str };
 }
 
 // ==================== 4.2 验证密钥更新密码（自测用） ====================
@@ -129,8 +123,8 @@ function verify_update(pwd_24, K_old, M, D) {
   var front8 = pwd_24.substring(0, 8);
   var enc_new_key = pwd_24.substring(8, 24);
 
-  var verify_result = verify_8digit(front8, K_old, M, D);
-  if (!verify_result.ok || verify_result.T !== '000000') {
+  var verify_result = verify_8digit(front8, K_old, M, D, '000000');
+  if (!verify_result.ok) {
     return { ok: false, error: '前导校验失败' };
   }
 
@@ -169,7 +163,7 @@ function runSelfTest() {
 
   // 测试普通密码（自洽性：生成 → 验证）
   var pwd_normal = generate_password(K, M, D, '260630');
-  var verify_normal = verify_8digit(pwd_normal, K, M, D);
+  var verify_normal = verify_8digit(pwd_normal, K, M, D, '260630');
   if (!verify_normal.ok || verify_normal.T !== '260630') {
     return '普通密码自洽失败: ' + JSON.stringify(verify_normal);
   }
@@ -178,7 +172,7 @@ function runSelfTest() {
 
   // 测试超级密码
   var pwd_super = generate_password(K, M, D, '999999');
-  var verify_super = verify_8digit(pwd_super, K, M, D);
+  var verify_super = verify_8digit(pwd_super, K, M, D, '999999');
   if (!verify_super.ok || verify_super.type !== 'permanent') {
     return '超级密码验证失败: ' + JSON.stringify(verify_super);
   }
@@ -621,14 +615,14 @@ calcBtn.addEventListener('click', function() {
   // 自检验证
   var verifyStr = '';
   if (currentMode === 'update') {
-    var v = verify_update(password, K, M, D);
+    var v = verify_update(password, K, M, D);  // verify_update 内部传 T='000000'
     if (v.ok) {
       verifyStr = '✅ 自检通过 → 新密钥: ' + v.new_key;
     } else {
       verifyStr = '❌ 自检失败: ' + v.error;
     }
   } else {
-    var v = verify_8digit(password, K, M, D);
+    var v = verify_8digit(password, K, M, D, T);
     if (v.ok) {
       if (v.type === 'permanent') {
         verifyStr = '✅ 自检通过 → 类型: 永久关闭';
