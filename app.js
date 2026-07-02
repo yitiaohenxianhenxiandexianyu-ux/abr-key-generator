@@ -387,12 +387,9 @@ function vigenereDecrypt(encryptedStr, keyStr) {
   return result;
 }
 
-// 获取真实厂商码（自动解密）
+// 获取厂商码（直接输入，不解密）
 function getRealM() {
-  var inputM = keyMInput.value.trim();
-  var K = keyKInput.value.trim();
-  if (!inputM || !K) return inputM;
-  return vigenereDecrypt(inputM, K);
+  return keyMInput.value.trim();
 }
 // ==================== 日期格式转换 ====================
 
